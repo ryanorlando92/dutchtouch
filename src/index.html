@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dutch Touch 2.0</title>
+    <style>
+        body { font-family: system-ui; padding: 20px; max-width: 400px; margin: auto; }
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+        input, select, button { padding: 8px; margin-top: 5px; }
+        button { cursor: pointer; background: #007bff; color: white; border: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>Launch POS</h2>
+    
+    <div class="form-group">
+        <label for="location">Location:</label>
+        <select id="location">
+            <option value="williamsburg">Williamsburg</option>
+            <option value="hampton">Hampton</option>
+            <option value="suffolk">Suffolk</option>
+            <option value="portsmouth">Portsmouth</option>
+            <option value="norfolk">Norfolk</option>
+            <option value="virginia_beach">Virginia Beach</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="managerPin">Manager PIN (4-6 digits):</label>
+        <input type="password" id="managerPin" pattern="\d{4,6}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="username">Dutchie Username:</label>
+        <input type="text" id="username">
+    </div>
+
+    <div class="form-group">
+        <label for="password">Dutchie Password:</label>
+        <input type="password" id="password">
+    </div>
+
+    <button id="launchBtn">Launch</button>
+
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
