@@ -13,9 +13,9 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "dutchtouch",
-        "width": 800,
-        "height": 600
+        "title": "DutchTouch Launcher",
+        "width": 400,
+        "height": 500
       }
     ],
     "security": {

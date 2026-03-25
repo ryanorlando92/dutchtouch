@@ -1,9 +1,30 @@
+
+ body {
+   font-family: system-ui;
+   padding: 10px;
+   max-width: 300px;
+   margin: auto;
+ }
+
+ .form-group {
+   margin-bottom: 13px;
+   display: flex;
+   flex-direction: column;
+ }
+
+ input,
+ select,
+ button {
+   padding: 8px;
+   margin-top: 5px;
+ }
+
 .logo.vanilla:hover {
   filter: drop-shadow(0 0 2em #ffe21c);
 }
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 24px;
   font-weight: 400;
 
@@ -56,6 +77,11 @@ h1 {
   text-align: center;
 }
 
+.heading {
+  font-size: medium;
+  margin: 0;
+}
+
 input,
 button {
   border-radius: 8px;
@@ -68,10 +94,7 @@ button {
   background-color: #ffffff;
   transition: border-color 0.25s;
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
+  outline: none;
 }
 
 button:hover {
@@ -82,9 +105,12 @@ button:active {
   background-color: #e8e8e8;
 }
 
-input,
 button {
-  outline: none;
+  cursor: pointer;
+  background: #007bff;
+  color: white;
+  border: none;
+  font-weight: bold;
 }
 
 #greet-input {
