@@ -5,13 +5,11 @@ import { invoke } from '@tauri-apps/api/core';
 document.getElementById('launchBtn').addEventListener('click', async () => {
     const pin = document.getElementById('managerPin').value;
     
-    // Basic validation
     if (!pin.match(/^\d{4,6}$/)) {
         alert("Please enter a valid 4 to 6 digit numerical PIN.");
         return;
     }
 
-    // 1. Create the new Dutchie Window
     const dutchieWin = new WebviewWindow('dutchie', {
         url: 'https://verano.pos.dutchie.com/guestlist',
         title: 'Dutchie POS - DutchTouch Link',
@@ -19,7 +17,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         height: 800
     });
 
-    // Wait for the window to successfully spin up
     dutchieWin.once('tauri://created', async () => {
         console.log("Window created, registering hotkeys...");
 
@@ -31,10 +28,11 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         if(el) { el.focus(); } else { alert('Field not found'); }
                     })();
                 `;
+                await invoke('inject_dutchie_js', { script: payload });
             });
 
             await register('Alt+C', async () => {
-                // The exact JS payload from your AHK script
+
                 const payload = `
                     (async function(){
                         const f = (t) => Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText && i.innerText.trim() === t && i.offsetParent !== null);
@@ -47,66 +45,68 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         if(btn2) { (btn2.closest('button') || btn2).click(); }
                     })();
                 `;
-                // Fire the Rust command to inject the payload
                 await invoke('inject_dutchie_js', { script: payload });
             });
 
             await register('Alt+M', async () => {
                 const payload = `
                     (function(){
-                        const card = document.querySelector(``div[class^='OrderKanbanCard']``);
+                        const card = document.querySelector("div[class^='OrderKanbanCard']");
                         if(card) { card.click(); }
                     })();
                 `;
+                await invoke('inject_dutchie_js', { script: payload });
             });
 
             await register('Alt+Space', async () => {
                 const payload = `
                     (function(){
                     const f = (t) => {
-                    const e = Array.from(document.querySelectorAll('button,span,div')).find(b => b.innerText.trim() === t);
+                    const e = Array.from(document.querySelectorAll('button,span,div')).find(b => b.innerText && b.innerText.trim() === t);
                     if(e) e.click();
                     return e;
                         };
                     if(f('Release')) { setTimeout(() => f('Confirm'), 100); }
                     })();
                 `;
+                await invoke('inject_dutchie_js', { script: payload });
             });
 
             await register('Alt+Q', async () => {
                 const payload = `
                     (function(){
-                        const el = document.querySelector(``[data-testid='navigation-sidebar-logo-link']``);
+                        const el = document.querySelector("[data-testid='navigation-sidebar-logo-link']");
                         if(el){
                             const target = el.closest('div') || el.closest('a') || el;
                             target.click();
                         }
                     })();
                 `;
+                await invoke('inject_dutchie_js', { script: payload });
             });
 
             await register('Alt+R', async () => {
                 const payload = `
                     (async function(){
                         const f = (s) => document.querySelector(s);
-                        const anchor = f(``[data-testid='guest-card_overflow_menu_anchor']``);
+                        const anchor = f("[data-testid='guest-card_overflow_menu_anchor']");
                         if (anchor) {
                             anchor.click();
                             await new Promise(r => setTimeout(r, 100));
-                            const release = f(``[data-testid='guest-card_overflow_menu_menu-option_Release']``);
+                            const release = f("[data-testid='guest-card_overflow_menu_menu-option_Release']");
                             if (release) {
                                 release.click();
                                 await new Promise(r => setTimeout(r, 100));
-                                const confirm = f(``[data-testid='confirmation-popup_confirm-button_confirm']``);
+                                const confirm = f("[data-testid='confirmation-popup_confirm-button_confirm']");
                                 if (confirm) confirm.click();
                             }
                         }
                     })();
                 `;
+                await invoke('inject_dutchie_js', { script: payload });
             });
 
             await register('Alt+I', async () => {
-                // We dynamically insert the `pin` variable captured from the form into the script
                 const payload = `
                     (function(){
                         const sV = (e,v) => {
