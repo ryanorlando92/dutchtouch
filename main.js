@@ -24,7 +24,15 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         console.log("Window created, registering hotkeys...");
 
         try {
-            // 2. Register Alt+C (Cancel & Close modals)
+            await register('Alt+B', async () => {
+                const payload = `
+                    (function(){
+                        const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
+                        if(el) { el.focus(); } else { alert('Field not found'); }
+                    })();
+                `;
+            });
+
             await register('Alt+C', async () => {
                 // The exact JS payload from your AHK script
                 const payload = `
@@ -43,7 +51,60 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                 await invoke('inject_dutchie_js', { script: payload });
             });
 
-            // 3. Register Alt+I (Add items & Inject PIN)
+            await register('Alt+M', async () => {
+                const payload = `
+                    (function(){
+                        const card = document.querySelector(``div[class^='OrderKanbanCard']``);
+                        if(card) { card.click(); }
+                    })();
+                `;
+            });
+
+            await register('Alt+Space', async () => {
+                const payload = `
+                    (function(){
+                    const f = (t) => {
+                    const e = Array.from(document.querySelectorAll('button,span,div')).find(b => b.innerText.trim() === t);
+                    if(e) e.click();
+                    return e;
+                        };
+                    if(f('Release')) { setTimeout(() => f('Confirm'), 100); }
+                    })();
+                `;
+            });
+
+            await register('Alt+Q', async () => {
+                const payload = `
+                    (function(){
+                        const el = document.querySelector(``[data-testid='navigation-sidebar-logo-link']``);
+                        if(el){
+                            const target = el.closest('div') || el.closest('a') || el;
+                            target.click();
+                        }
+                    })();
+                `;
+            });
+
+            await register('Alt+R', async () => {
+                const payload = `
+                    (async function(){
+                        const f = (s) => document.querySelector(s);
+                        const anchor = f(``[data-testid='guest-card_overflow_menu_anchor']``);
+                        if (anchor) {
+                            anchor.click();
+                            await new Promise(r => setTimeout(r, 100));
+                            const release = f(``[data-testid='guest-card_overflow_menu_menu-option_Release']``);
+                            if (release) {
+                                release.click();
+                                await new Promise(r => setTimeout(r, 100));
+                                const confirm = f(``[data-testid='confirmation-popup_confirm-button_confirm']``);
+                                if (confirm) confirm.click();
+                            }
+                        }
+                    })();
+                `;
+            });
+
             await register('Alt+I', async () => {
                 // We dynamically insert the `pin` variable captured from the form into the script
                 const payload = `
