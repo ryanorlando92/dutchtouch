@@ -14,7 +14,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
     // 1. Create the new Dutchie Window
     const dutchieWin = new WebviewWindow('dutchie', {
         url: 'https://verano.pos.dutchie.com/guestlist',
-        title: 'Dutchie POS',
+        title: 'Dutchie POS - DutchTouch Link',
         width: 1200,
         height: 800
     });
