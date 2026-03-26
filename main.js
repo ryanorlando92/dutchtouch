@@ -4,6 +4,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { load } from '@tauri-apps/plugin-store';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { message, confirm } from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
 
 let store;
 
@@ -82,7 +84,7 @@ async function checkForUpdates() {
         if (update) {
             console.log(`Found update: Version ${update.version}`);
 
-            if (confirm(`Version ${update.version} is available! Would you like to install it now?`)) {
+            if (confirm(`Version ${update.version} is available! Would you like to install it now?`, { title: 'Dutch Touch Updater', kind: 'info' })) {
                 console.log("Downloading and installing...");
                 
                 await update.downloadAndInstall();
@@ -101,6 +103,10 @@ async function checkForUpdates() {
 checkForUpdates();
 
 document.getElementById('launchBtn').addEventListener('click', async () => {
+
+
+
+    
     const pin = document.getElementById('managerPin').value;
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
@@ -148,7 +154,10 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         `;
     
     if (!pin.match(/^\d{4,6}$/)) {
-        alert("Please enter a valid 4 to 6 digit numerical PIN.");
+        await message('Please enter a valid 4 to 6 digit numerical PIN.', {
+            title: 'Dutch Touch Error',
+            kind: 'error'
+        });
         return;
     }
 
@@ -186,7 +195,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                     const payload = `
                         (function(){
                             const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
-                            if(el) { el.focus(); } else { alert('Field not found'); }
+                            if(el) el.focus();
                         })();
                     `;
                     await invoke('inject_js', { script: payload });

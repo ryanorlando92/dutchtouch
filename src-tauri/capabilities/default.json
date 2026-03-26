@@ -13,6 +13,9 @@
     "core:webview:allow-create-webview-window",
     "store:default",
     "updater:default",
-    "process:default"
+    "process:default",
+    "dialog:default",
+    "dialog:allow-message",
+    "dialog:allow-confirm"
   ]
 }
