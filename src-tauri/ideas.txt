@@ -1,0 +1,11 @@
+build mode, app based or laptop
+ - gives user a chance to fill empty fields on prep sheet
+  - subset of dutchie required fields (lot, exp, pkg)
+
+  #Behavior
+   row by row prompt user to fill field, advance with enter key or button on screen
+   - identify row by name field
+   - identify column name
+   - load next after save
+
+   input validation for fields?

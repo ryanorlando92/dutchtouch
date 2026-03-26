@@ -120,7 +120,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             if(el) { el.focus(); } else { alert('Field not found'); }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 await register('Alt+C', async () => {
@@ -137,7 +137,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             if(btn2) { (btn2.closest('button') || btn2).click(); }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 await register('Alt+M', async () => {
@@ -147,7 +147,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             if(card) { card.click(); }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 await register('Alt+Space', async () => {
@@ -161,7 +161,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         if(f('Release')) { setTimeout(() => f('Confirm'), 100); }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 await register('Alt+Q', async () => {
@@ -174,7 +174,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 await register('Alt+R', async () => {
@@ -195,7 +195,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 await register('Alt+I', async () => {
@@ -224,7 +224,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             }
                         })();
                     `;
-                    await invoke('inject_dutchie_js', { script: payload });
+                    await invoke('inject_js', { script: payload });
                 });
 
                 console.log("Hotkeys registered (Window focused)");
@@ -244,13 +244,14 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
 
         await registerHotkeys();
 
+        
         dutchieWin.onFocusChanged(async ({ payload: isFocused }) => {
             if (isFocused) {
                 await registerHotkeys();
             } else {
                 await releaseHotkeys();
             }
-        });
+        });   
 
         dutchieWin.onCloseRequested(async () => {
             await releaseHotkeys();
