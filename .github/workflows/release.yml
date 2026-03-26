@@ -41,8 +41,9 @@ jobs:
       - name: Build Tauri App and Publish Release
         uses: tauri-apps/tauri-action@v0
         env:
-          # GitHub automatically generates this temporary password for the bot
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Dutch Touch Release ${{ github.ref_name }}'

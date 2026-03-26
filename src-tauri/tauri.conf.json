@@ -3,6 +3,14 @@
   "productName": "dutchtouch",
   "version": "2.0.2",
   "identifier": "com.dutchtouch.app",
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGQjZGNDc3NjIyMTcwRUMKUldUc2NDRmlkL1MySDhCRytzcFVnbHRxYXdRS09Eb1ZodjFNTndTTHYvN0JVWU1zTzhwejlmQXMK",
+      "endpoints": [
+        "https://github.com/ryanorlando92/dutchtouch/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "build": {
   "beforeDevCommand": "npm run dev",
   "beforeBuildCommand": "npm run build",

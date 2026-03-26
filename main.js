@@ -2,6 +2,8 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { register, unregisterAll } from '@tauri-apps/plugin-global-shortcut';
 import { invoke } from '@tauri-apps/api/core';
 import { load } from '@tauri-apps/plugin-store';
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 
 let store;
 
@@ -33,7 +35,6 @@ async function loadSavedSettings() {
 loadSavedSettings();
 
 const SecureStore = {
-    // Converts the OS username into a valid cryptographic key
     async getKey(usernameSeed) {
         const enc = new TextEncoder();
         const keyMaterial = await crypto.subtle.importKey(
@@ -48,11 +49,9 @@ const SecureStore = {
     async encrypt(plainText, usernameSeed) {
         if (!plainText) return "";
         const key = await this.getKey(usernameSeed);
-        const iv = crypto.getRandomValues(new Uint8Array(12)); // Random initialization vector
+        const iv = crypto.getRandomValues(new Uint8Array(12));
         const enc = new TextEncoder();
         const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plainText));
-        
-        // Package the IV and encrypted data together into a Base64 string to save in JSON
         const combined = new Uint8Array(iv.length + encrypted.byteLength);
         combined.set(iv);
         combined.set(new Uint8Array(encrypted), iv.length);
@@ -74,6 +73,32 @@ const SecureStore = {
         }
     }
 };
+
+async function checkForUpdates() {
+    try {
+        console.log("Checking GitHub for updates...");
+        const update = await check();
+        
+        if (update) {
+            console.log(`Found update: Version ${update.version}`);
+
+            if (confirm(`Version ${update.version} is available! Would you like to install it now?`)) {
+                console.log("Downloading and installing...");
+                
+                await update.downloadAndInstall();
+                
+                console.log("Installation complete. Restarting app!");
+                await relaunch();
+            }
+        } else {
+            console.log("App is currently up to date.");
+        }
+    } catch (error) {
+        console.error("Failed to check for updates:", error);
+    }
+}
+
+checkForUpdates();
 
 document.getElementById('launchBtn').addEventListener('click', async () => {
     const pin = document.getElementById('managerPin').value;
