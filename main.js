@@ -104,6 +104,48 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
     const pin = document.getElementById('managerPin').value;
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+
+    const loginPayload = `
+            (function() {
+                const injectedUser = ${JSON.stringify(username)};
+                const injectedPass = ${JSON.stringify(password)};
+                let attempts = 0;
+
+                // REACT BYPASS: Triggers the actual synthetic events so the framework registers the text
+                const setNativeValue = (element, value) => {
+                    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                    valueSetter.call(element, value);
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                };
+
+                // THE POLLER: Checks the page every 500ms for the login fields
+                const attemptLogin = () => {
+                    attempts++;
+                    
+                    // Adjust these CSS selectors based on Dutchie's actual login page structure
+                    const userField = document.querySelector('input[data-testid="login-page_input_username"], input[placeholder="Username"]');
+                    const passField = document.querySelector('input[type="password"]');
+
+                    if (userField && passField) {
+                        console.log("Fields found! Injecting credentials...");
+                        setNativeValue(userField, injectedUser);
+                        setNativeValue(passField, injectedPass);
+                        
+                         const loginBtn = document.querySelector('button[type="submit"]');
+                         if (loginBtn) {
+                             setTimeout(() => loginBtn.click(), 500); // Slight delay to let React catch up
+                         }
+                    } else if (attempts < 20) {
+                        // If not found, try again in 500ms (up to 10 seconds total)
+                        setTimeout(attemptLogin, 500);
+                    } else {
+                        console.log("Auto-login failed: Could not find input fields after 10 seconds.");
+                    }
+                };
+
+                attemptLogin();
+            })();
+        `;
     
     if (!pin.match(/^\d{4,6}$/)) {
         alert("Please enter a valid 4 to 6 digit numerical PIN.");
@@ -127,13 +169,13 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
     }
 
     console.log("Attempting to spawn Dutchie window...");
-
     const dutchieWin = new WebviewWindow('dutchie', {
         url: 'https://verano.pos.dutchie.com/guestlist',
         title: 'Dutchie POS - DutchTouch Link',
         width: 1200,
         height: 800
-    });
+        });
+ 
 
     dutchieWin.once('tauri://created', async () => {
         console.log("Window created successfully");
@@ -281,56 +323,16 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             await releaseHotkeys();
         });
 
-        try{
-            await registerHotkeys();
+        await registerHotkeys();
 
-            const loginPayload = `
-            (function() {
-                const injectedUser = ${JSON.stringify(username)};
-                const injectedPass = ${JSON.stringify(password)};
-                let attempts = 0;
-
-                // REACT BYPASS: Triggers the actual synthetic events so the framework registers the text
-                const setNativeValue = (element, value) => {
-                    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                    valueSetter.call(element, value);
-                    element.dispatchEvent(new Event('input', { bubbles: true }));
-                };
-
-                // THE POLLER: Checks the page every 500ms for the login fields
-                const attemptLogin = () => {
-                    attempts++;
-                    
-                    // Adjust these CSS selectors based on Dutchie's actual login page structure
-                    const userField = document.querySelector('input[data-testid="login-page_input_username"], input[placeholder="Username"]');
-                    const passField = document.querySelector('input[type="password"]');
-
-                    if (userField && passField) {
-                        console.log("Fields found! Injecting credentials...");
-                        setNativeValue(userField, injectedUser);
-                        setNativeValue(passField, injectedPass);
-                        
-                        // const loginBtn = document.querySelector('button[type="submit"]');
-                        // if (loginBtn) {
-                        //     setTimeout(() => loginBtn.click(), 300); // Slight delay to let React catch up
-                        // }
-                    } else if (attempts < 20) {
-                        // If not found, try again in 500ms (up to 10 seconds total)
-                        setTimeout(attemptLogin, 500);
-                    } else {
-                        console.log("Auto-login failed: Could not find input fields after 10 seconds.");
-                    }
-                };
-
-                attemptLogin();
-            })();
-        `;
-        
-        await invoke('inject_js', { script: loginPayload });
-
-    } catch (e) {
-        console.error("Critical error during launch sequence:", e);
-    }
+        setTimeout(async () => {
+            console.log("waiting to inject login sequence...")
+            try {
+                await invoke('inject_js', { script: loginPayload }); 
+            } catch (error) {
+                console.error("Failed to inject login script.", error);
+            }
+        }, 2000);
     });
 
 });
