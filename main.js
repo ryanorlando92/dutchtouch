@@ -277,7 +277,17 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
                         })();`;
                     } else {
-                        payload = `/* Backoffice specific logic */`;
+                        payload = `(function(){
+                            const f = (t) => {
+                                const testIdBtn = document.querySelector('[data-testid="modal-close-button"]');
+                                if (testIdBtn && testIdBtn.offsetParent !== null) return testIdBtn;
+                                
+                                return Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText?.trim() === t && i.offsetParent !== null);
+                            };
+                            
+                            const b1 = f('Cancel'); if(b1) b1.click();
+                            setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
+                        })();`;
                     }
                 break;
 
@@ -375,8 +385,20 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         })();`;
                     } else {
                         payload = `(function(){
-                            const el = Array.from(document.querySelectorAll('input,textarea')).filter(i => i.placeholder && i.placeholder.includes('Search')).pop();
-                            if(el) { el.focus(); } else { alert('Field not found'); }
+                            const inputs = Array.from(document.querySelectorAll('input[type="search"], input[placeholder*="search" i]'));
+                            const visibleInputs = inputs.filter(el => el.offsetParent !== null);
+                            
+                            if (visibleInputs.length > 1) {
+                                // Grab the SECOND visible search bar (Array index 1)
+                                visibleInputs[1].focus();
+                                visibleInputs[1].select(); 
+                            } else if (visibleInputs.length === 1) {
+                                // Safety Fallback: If there's only one, grab the first
+                                visibleInputs[0].focus();
+                                visibleInputs[0].select();
+                            } else {
+                                console.log("No visible search bar found.");
+                            }
                         })();`;
                     }
                 break;
@@ -412,7 +434,31 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             }
                         })();`;
                     } else {
-                        payload = `/* Backoffice specific logic */`;
+                        payload = `(function() {
+                            const allSvgs = Array.from(document.querySelectorAll('svg'));
+                            const anchorIndex = allSvgs.findIndex(svg => svg.getAttribute('data-testid') === 'sidebar-menu_svg_icon');
+                            
+                            if (anchorIndex !== -1 && anchorIndex + 1 < allSvgs.length) {
+                                const targetSvg = allSvgs[anchorIndex + 1];
+                                const wrapper = targetSvg.closest('a, button, li, div[role="button"], div[class*="MenuItem"]') || targetSvg;
+                                
+                                // THE REACT BUSTER: Forge a highly realistic mouse click
+                                const clickEvent = new MouseEvent('click', {
+                                    view: window,
+                                    bubbles: true,
+                                    cancelable: true,
+                                    buttons: 1
+                                });
+                                
+                                // Dispatch the forged event
+                                wrapper.dispatchEvent(clickEvent);
+                                
+                                // Fallback: If it's an <a> tag and React still swallows it, force the URL change
+                                if (wrapper.tagName === 'A' && wrapper.href) {
+                                    setTimeout(() => { window.location.href = wrapper.href; }, 100);
+                                }
+                            }
+                        })();`;
                     }
                 break;
 
