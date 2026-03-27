@@ -122,16 +122,25 @@ async function setupGlobalListener() {
                 }
 
                 if (target === 'backoffice') {
+
                     console.log("[TOGGLE] Hiding POS...");
-                    await posWin.hide();
+                    await posWin.minimize();
+
                     console.log("[TOGGLE] Showing Backoffice...");
                     await boWin.show();
+                    await boWin.unminimize();
+                    // await new Promise(r => setTimeout(r, 500));
                     await boWin.setFocus();
+
                 } else if (target === 'pos') {
+
                     console.log("[TOGGLE] Hiding Backoffice...");
-                    await boWin.hide();
+                    await boWin.minimize();
+
                     console.log("[TOGGLE] Showing POS...");
                     await posWin.show();
+                    await posWin.unminimize();
+                    // await new Promise(r => setTimeout(r, 500));
                     await posWin.setFocus();
                 }
             } catch (err) {
@@ -184,7 +193,8 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             title: 'Dutchie POS - DutchTouch',
             width: 1200,
             height: 800,
-            visible: true
+            visible: true,
+            maximized: true
         });
 
         const boWin = new WebviewWindow('backoffice', {
@@ -192,20 +202,43 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             title: 'Dutchie Backoffice - DutchTouch',
             width: 1200,
             height: 800,
-            visible: false
+            visible: true,
+            maximized: true
         });
         console.log('POS & Backoffice windows successfully initialized');
 
-    const getInjectionScript = (buttonText, targetView) => {
+        const getInjectionScript = (buttonText, targetView) => {
         return `
             (function() {
                 if (document.getElementById('tauri-switcher')) return;
+                
+                // 1. Build the Button
                 const btn = document.createElement('button');
                 btn.id = 'tauri-switcher';
                 btn.innerText = '${buttonText}';
                 btn.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:999999; background:#0f0f0f; color:#FFF; border:2px solid #396cd8; border-radius:8px; padding:12px 24px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 14px;';
-                btn.onclick = () => window.__TAURI__.event.emit('toggle-view', '${targetView}');
+                
+                btn.onclick = () => {
+                    try {
+                        if (!window.__TAURI__) {
+                            alert("CRITICAL ERROR: window.__TAURI__ is missing!");
+                            return;
+                        }
+                        window.__TAURI__.event.emit('toggle-view', '${targetView}');
+                    } catch (e) {
+                        alert("EMIT FAILED: " + e.message);
+                    }
+                };
+                
                 document.body.appendChild(btn);
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 'Tab') {
+                        e.preventDefault();
+                        console.log("Ctrl+Tab intercepted. Triggering window swap...");
+                        btn.click();
+                    }
+                }, true);
             })();
         `;
     };
@@ -300,6 +333,9 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                                 return e;
                             };
                             if(f('Release')) { setTimeout(() => f('Confirm'), 100); }
+                            await new Promise(r => setTimeout(r, 500));
+                            const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
+                            if(el) el.focus();
                         })();`;
                     } else {
                         payload = `(function(){
@@ -371,6 +407,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'pos', script: getInjectionScript('Backoffice ➔', 'backoffice') })
             .catch(err => console.error("create pos->backoffice button failed:", err));
+            await new Promise(r => setTimeout(r, 500));
             await invoke('inject_js', { windowLabel: 'pos', script: getLoginPayload(username, password) })
             .catch(err => console.error("pos login injection failed:", err));
         }, 2000);
@@ -382,19 +419,20 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'backoffice', script: getInjectionScript('⬅ POS', 'pos') })
             .catch(err => console.error("create backoffice->pos button failed:", err));
+            await new Promise(r => setTimeout(r, 500));
             await invoke('inject_js', { windowLabel: 'backoffice', script: getLoginPayload(username, password) })
             .catch(err => console.error("backoffice login injection failed:", err));
         }, 2000);
     });
 
+    posWin.setFocus();
+
     posWin.onCloseRequested(async () => {
         try { await unregisterAll(); } catch (e) { console.error(e); };
-        await boWin.close(); 
     });
 
     boWin.onCloseRequested(async () => {
         try { await unregisterAll(); } catch (e) { console.error(e); }
-        await posWin.close(); 
     });
 
 });
