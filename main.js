@@ -285,7 +285,64 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                     if (active === 'pos') {
                         payload = `(function(){ const card = document.querySelector("div[class^='OrderKanbanCard']"); if(card) card.click(); })();`;
                     } else {
-                        payload = `/* Backoffice specific logic */`;
+                        payload = `(async function(){
+                            const f = (s) => document.querySelector(s);
+                            const fA = (s) => Array.from(document.querySelectorAll(s));
+                            
+                            // 1. Find the Vault room
+                            const RoomCol = fA('[data-field="room.roomNo"]');
+                            const vaultCell = RoomCol.find(el => el.innerText && el.innerText.trim() === 'Vault');
+                            if (!vaultCell) { console.log('Vault room not found'); return; }
+                            
+                            // 2. Locate the corresponding action row
+                            const row = vaultCell.closest('[data-rowindex]');
+                            if (!row) return;
+                            const rowIndex = row.getAttribute('data-rowindex');
+
+                            const actionRow = f('[data-testid="data-grid-pinned-row"][data-rowindex="' + rowIndex + '"]');
+                            if (!actionRow) return;
+
+                            // 3. Click Row Actions -> Move
+                            const actionButton = actionRow.querySelector('[data-testid="user-row-actions-button"]');
+                            if (actionButton) actionButton.click();
+                            await new Promise(r => setTimeout(r, 100));
+
+                            const moveBtn = f('[data-testid="inventory-row-action-move"]');
+                            if (moveBtn) moveBtn.click();
+                            
+                            // Wait for the modal drawer to fully render (AHK waited 750ms here)
+                            await new Promise(r => setTimeout(r, 800)); 
+
+                            // 4. Focus the Room Select and force it open (The Spacebar Bypass)
+                            const roomSelect = f('[id="select-input_Room:"]');
+                            if (roomSelect) {
+                                roomSelect.focus();
+                                
+                                // Simulates the physical Spacebar press for React
+                                roomSelect.dispatchEvent(new KeyboardEvent('keydown', {
+                                    key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true
+                                }));
+                                
+                                // Fallback: React UI libraries often prefer mousedown to open dropdowns
+                                roomSelect.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                            }
+
+                            // Wait for the DOM to render the dropdown list
+                            await new Promise(r => setTimeout(r, 200)); 
+
+                            // 5. Select the Sales Floor
+                            const salesFloor = f('li[data-value="4226"]');
+                            if (salesFloor) salesFloor.click();
+                            
+                            await new Promise(r => setTimeout(r, 150));
+
+                            // 6. Focus and highlight the Quantity input
+                            const qtyInput = f('[data-field="quantity"][role="cell"] [type="number"]');
+                            if (qtyInput) {
+                                qtyInput.focus();
+                                qtyInput.select();
+                            }
+                        })();`;
                     }
                 break;
 
@@ -326,7 +383,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
 
                 case 'Alt+Space':
                     if (active === 'pos') {
-                        payload = `(function(){
+                        payload = `(async function(){
                             const f = (t) => {
                                 const e = Array.from(document.querySelectorAll('button,span,div')).find(b => b.innerText.trim() === t);
                                 if(e) e.click();
