@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "dutchie-remote-events",
+  "description": "Allows the remote Dutchie webviews to broadcast view-toggle events",
+  "windows": [
+    "pos",
+    "backoffice"
+  ],
+  "remote": {
+    "urls": [
+      "https://*.dutchie.com",
+      "https://*.dutchie.com/*"
+    ]
+  },
+  "permissions": [
+    "core:event:allow-emit"
+  ]
+}

@@ -20,17 +20,12 @@ fn get_os_username() -> String {
 }
 
 #[tauri::command]
-fn inject_js(app: tauri::AppHandle, script: String) -> Result<(), String> {
-    // `get_webview_window` searches for the webview we labeled "dutchie" in JavaScript.
-    // `if let Some(...)` is Rust's safe way of handling things that might be null/missing.
-    // It prevents your app from crashing if the window was closed.
-    if let Some(webview) = app.get_webview_window("dutchie") {
-        // `.eval()` forces the webview to execute the raw string as JavaScript.
-        // `.map_err(|e| e.to_string())?` catches any internal Tauri errors and safely passes them back to JS.
+fn inject_js(app: tauri::AppHandle, window_label: String, script: String) -> Result<(), String> {
+    if let Some(webview) = app.get_webview_window(&window_label) {
         webview.eval(&script).map_err(|e| e.to_string())?;
         Ok(())
     } else {
-        Err("Dutchie window not found".into())
+        Err(format!("Window '{}' not found", window_label))
     }
 }
 
