@@ -84,13 +84,20 @@ async function checkForUpdates() {
         if (update) {
             console.log(`Found update: Version ${update.version}`);
 
-            if (confirm(`Version ${update.version} is available! Would you like to install it now?`, { title: 'Dutch Touch Updater', kind: 'info' })) {
-                console.log("Downloading and installing...");
-                
+            const userConfirmed = await confirm(
+                `Version ${update.version} is available! Would you like to install it now?`, 
+                { 
+                    title: 'Dutch Touch Updater', 
+                    kind: 'info' 
+                }
+            );
+
+            if (userConfirmed) {
+                console.log("User said yes. Downloading and installing...");
                 await update.downloadAndInstall();
-                
-                console.log("Installation complete. Restarting app!");
                 await relaunch();
+            } else {
+                console.log("User declined the update.");
             }
         } else {
             console.log("App is currently up to date.");
@@ -411,7 +418,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                                 if(e) e.click();
                                 return e;
                             };
-                            if(f('Release')) { setTimeout(() => f('Confirm'), 100); }
+                            if(f('Release')) { setTimeout(() => f('Confirm'), 150); }
                             await new Promise(r => setTimeout(r, 500));
                             const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
                             if(el) el.focus();
