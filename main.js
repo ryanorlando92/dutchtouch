@@ -246,6 +246,14 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         btn.click();
                     }
                 }, true);
+
+                window.addEventListener('keyup', (e) => {
+                    if (e.key === 'Alt') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }, true);
+
             })();
         `;
     };
