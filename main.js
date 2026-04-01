@@ -179,273 +179,318 @@ async function setupGlobalListener() {
     }
 }
 
+/* async function killOldWindows() {
+    try {
+        console.log('Starting Garbage Collection...');
+        const allWindows = await WebviewWindow.getAll();
+        const posWindows = allWindows.filter(w => w.label.includes('pos'));
+        const boWindows = allWindows.filter(w => w.label.includes('backoffice'));
+
+        const executeClones = async (windowGroup, groupName) => {
+            if (windowGroup.length <= 1) return; 
+            console.warn(`[GC] Detected ${windowGroup.length} ${groupName} windows. Initiating sweep...`);
+
+            let activeWin = null;
+            for (const win of windowGroup) {
+                if (await win.isFocused()) {
+                    activeWin = win;
+                    break;
+                }
+            }
+
+            if (!activeWin) {
+                activeWin = windowGroup[windowGroup.length - 1]; 
+            }
+
+            for (const win of windowGroup) {
+                if (win.label !== activeWin.label) {
+                    console.log(`[GC] Terminating zombie clone: ${win.label}`);
+                    await win.close(); 
+                }
+            }
+        };
+
+        await executeClones(posWindows, "POS");
+        await executeClones(boWindows, "Backoffice");
+
+        console.log('Garbage Collection Complete.')
+    } catch (error) {
+        console.error("Garbage Collector failed to complete sweep:", error);
+    }
+}
+setInterval(killOldWindows, 15000); */
+
 setupGlobalListener();
 loadSavedSettings();
 checkForUpdates();
 
-
-
 document.getElementById('launchBtn').addEventListener('click', async () => {
     await unregisterAll().catch(err => console.error("un-registering hotkeys failed:", err));
-const getActiveLabel = async () => {
-    if (await posWin.isFocused()) return 'pos';
-    if (await boWin.isFocused()) return 'backoffice';
-    return null;
-};
 
-const registerDualHotkeys = async () => {
-    console.log('Starting hotkey registration sequence');
+    const registerDualHotkeys = async () => {
+        console.log('Starting hotkey registration sequence');
 
-    const dispatchHotkey = async (key) => {
-        console.log(`[ROUTER] Intercepted: ${key}`);
+        const dispatchHotkey = async (key) => {
+            console.log(`[ROUTER] Intercepted: ${key}`);
+            
+            const allWindows = await WebviewWindow.getAll();
+            let target = null;
+            let active = null;
 
-        // await new Promise(r => setTimeout(r, 50)); 
+            for (const win of allWindows) {
+                if (await win.isFocused()) {
+                    target = win.label;
+                    
+                    if (target.includes('pos')) active = 'pos';
+                    else if (target.includes('backoffice')) active = 'backoffice';
 
-        const active = await getActiveLabel();
-        console.log(`[ROUTER] Active window evaluated as: ${active}`);
-
-        if (!active) {
-            console.log(`[ROUTER] ABORT: User is clicked into another app.`);
-            return;
-        }
-
-        let payload = "";
-        let target = active;
-
-        switch (key) {
-            case 'Alt+C':
-                if (active === 'pos') {
-                    payload = `(function(){
-                        const f = (t) => Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText?.trim() === t && i.offsetParent !== null);
-                        const b1 = f('Cancel'); if(b1) b1.click();
-                        setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
-                    })();`;
-                } else {
-                    payload = `(function(){
-                        const f = (t) => {
-                            const testIdBtn = document.querySelector('[data-testid="modal-close-button"]');
-                            if (testIdBtn && testIdBtn.offsetParent !== null) return testIdBtn;
-                            
-                            return Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText?.trim() === t && i.offsetParent !== null);
-                        };
-                        
-                        const b1 = f('Cancel'); if(b1) b1.click();
-                        setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
-                    })();`;
+                    break;
                 }
-            break;
+            }
+            console.log(`[ROUTER] Active window evaluated as: ${target} (Group: ${active})`);
 
-            case 'Alt+M':
-                if (active === 'pos') {
-                    payload = `(function(){ const card = document.querySelector("div[class^='OrderKanbanCard']"); if(card) card.click(); })();`;
-                } else {
-                    payload = `(async function(){
-                        const f = (s) => document.querySelector(s);
-                        const fA = (s) => Array.from(document.querySelectorAll(s));
-                        
-                        // 1. Find the Vault room
-                        const RoomCol = fA('[data-field="room.roomNo"]');
-                        const vaultCell = RoomCol.find(el => el.innerText && el.innerText.trim() === 'Vault');
-                        if (!vaultCell) { console.log('Vault room not found'); return; }
-                        
-                        // 2. Locate the corresponding action row
-                        const row = vaultCell.closest('[data-rowindex]');
-                        if (!row) return;
-                        const rowIndex = row.getAttribute('data-rowindex');
+            if (!active || !target) {
+                console.log(`[ROUTER] ABORT: User is clicked into another app or unknown window.`);
+                return;
+            }
+            
+            let payload = "";
+            target = active;
 
-                        const actionRow = f('[data-testid="data-grid-pinned-row"][data-rowindex="' + rowIndex + '"]');
-                        if (!actionRow) return;
-
-                        // 3. Click Row Actions -> Move
-                        const actionButton = actionRow.querySelector('[data-testid="user-row-actions-button"]');
-                        if (actionButton) actionButton.click();
-                        await new Promise(r => setTimeout(r, 100));
-
-                        const moveBtn = f('[data-testid="inventory-row-action-move"]');
-                        if (moveBtn) moveBtn.click();
-                        
-                        // Wait for the modal drawer to fully render (AHK waited 750ms here)
-                        await new Promise(r => setTimeout(r, 800)); 
-
-                        // 4. Focus the Room Select and force it open (The Spacebar Bypass)
-                        const roomSelect = f('[id="select-input_Room:"]');
-                        if (roomSelect) {
-                            roomSelect.focus();
+            switch (key) {
+                case 'Alt+C':
+                    if (active === 'pos') {
+                        payload = `(function(){
+                            const f = (t) => Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText?.trim() === t && i.offsetParent !== null);
+                            const b1 = f('Cancel'); if(b1) b1.click();
+                            setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
+                        })();`;
+                    } else {
+                        payload = `(function(){
+                            const f = (t) => {
+                                const testIdBtn = document.querySelector('[data-testid="modal-close-button"]');
+                                if (testIdBtn && testIdBtn.offsetParent !== null) return testIdBtn;
+                                
+                                return Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText?.trim() === t && i.offsetParent !== null);
+                            };
                             
-                            // Simulates the physical Spacebar press for React
-                            roomSelect.dispatchEvent(new KeyboardEvent('keydown', {
-                                key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true
-                            }));
+                            const b1 = f('Cancel'); if(b1) b1.click();
+                            setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
+                        })();`;
+                    }
+                break;
+
+                case 'Alt+M':
+                    if (active === 'pos') {
+                        payload = `(function(){ const card = document.querySelector("div[class^='OrderKanbanCard']"); if(card) card.click(); })();`;
+                    } else {
+                        payload = `(async function(){
+                            const f = (s) => document.querySelector(s);
+                            const fA = (s) => Array.from(document.querySelectorAll(s));
                             
-                            // Fallback: React UI libraries often prefer mousedown to open dropdowns
-                            roomSelect.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                        }
-
-                        // Wait for the DOM to render the dropdown list
-                        await new Promise(r => setTimeout(r, 200)); 
-
-                        // 5. Select the Sales Floor
-                        const salesFloor = f('li[data-value="4226"]');
-                        if (salesFloor) salesFloor.click();
-                        
-                        await new Promise(r => setTimeout(r, 150));
-
-                        // 6. Focus and highlight the Quantity input
-                        const qtyInput = f('[data-field="quantity"][role="cell"] [type="number"]');
-                        if (qtyInput) {
-                            qtyInput.focus();
-                            qtyInput.select();
-                        }
-                    })();`;
-                }
-            break;
-
-            case 'Alt+I':
-                if (active === 'pos') {
-                    payload = `(function(){
-                        const sV = (e,v) => {
-                            const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                            s.call(e, v);
-                            e.dispatchEvent(new Event('input', {bubbles:true}));
-                        };
-                        const fE = (t,x) => Array.from(document.querySelectorAll(t)).find(e => e.innerText?.trim() === x || e.placeholder === x || e.name === x);
-                        const bA = fE('button,span,div', 'Add items');
-                        if(bA) {
-                            bA.click();
-                            setTimeout(() => {
-                                const pF = fE('input', 'Manager PIN');
-                                if(pF) { sV(pF, '${pin}'); setTimeout(() => { const bC = fE('button,span,div', 'Continue'); if(bC) bC.click(); }, 250); }
-                            }, 250);
-                        }
-                    })();`;
-                }
-            break;
-                
-            case 'Alt+B':
-                if (active === 'pos') {
-                    payload = `(function(){
-                        const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
-                        if(el) el.focus();
-                    })();`;
-                } else {
-                    payload = `(function(){
-                        const inputs = Array.from(document.querySelectorAll('input[type="search"], input[placeholder*="search" i]'));
-                        const visibleInputs = inputs.filter(el => el.offsetParent !== null);
-                        
-                        if (visibleInputs.length > 1) {
-                            // Grab the SECOND visible search bar (Array index 1)
-                            visibleInputs[1].focus();
-                            visibleInputs[1].select(); 
-                        } else if (visibleInputs.length === 1) {
-                            // Safety Fallback: If there's only one, grab the first
-                            visibleInputs[0].focus();
-                            visibleInputs[0].select();
-                        } else {
-                            console.log("No visible search bar found.");
-                        }
-                    })();`;
-                }
-            break;
-
-            case 'Alt+Space':
-                if (active === 'pos') {
-                    payload = `(async function(){
-                        const f = (t) => {
-                            const e = Array.from(document.querySelectorAll('button,span,div')).find(b => b.innerText.trim() === t);
-                            if(e) e.click();
-                            return e;
-                        };
-                        if(f('Release')) { setTimeout(() => f('Confirm'), 150); }
-                        await new Promise(r => setTimeout(r, 500));
-                        const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
-                        if(el) el.focus();
-                    })();`;
-                } else {
-                    payload = `(function(){
-                        const btn = document.querySelector("[data-testid='move-inventory-modal-move-button']");
-                        if (btn) btn.click();
-                    })();`;
-                }
-            break;
-
-            case 'Alt+Q':
-                if (active === 'pos') {
-                    payload = `(function(){
-                        const el = document.querySelector("[data-testid='navigation-sidebar-logo-link']");
-                        if(el){
-                            const target = el.closest('div') || el.closest('a') || el;
-                            target.click();
-                        }
-                    })();`;
-                } else {
-                    payload = `(function() {
-                        const allSvgs = Array.from(document.querySelectorAll('svg'));
-                        const anchorIndex = allSvgs.findIndex(svg => svg.getAttribute('data-testid') === 'sidebar-menu_svg_icon');
-                        
-                        if (anchorIndex !== -1 && anchorIndex + 1 < allSvgs.length) {
-                            const targetSvg = allSvgs[anchorIndex + 1];
-                            const wrapper = targetSvg.closest('a, button, li, div[role="button"], div[class*="MenuItem"]') || targetSvg;
+                            // 1. Find the Vault room
+                            const RoomCol = fA('[data-field="room.roomNo"]');
+                            const vaultCell = RoomCol.find(el => el.innerText && el.innerText.trim() === 'Vault');
+                            if (!vaultCell) { console.log('Vault room not found'); return; }
                             
-                            // THE REACT BUSTER: Forge a highly realistic mouse click
-                            const clickEvent = new MouseEvent('click', {
-                                view: window,
-                                bubbles: true,
-                                cancelable: true,
-                                buttons: 1
-                            });
+                            // 2. Locate the corresponding action row
+                            const row = vaultCell.closest('[data-rowindex]');
+                            if (!row) return;
+                            const rowIndex = row.getAttribute('data-rowindex');
+
+                            const actionRow = f('[data-testid="data-grid-pinned-row"][data-rowindex="' + rowIndex + '"]');
+                            if (!actionRow) return;
+
+                            // 3. Click Row Actions -> Move
+                            const actionButton = actionRow.querySelector('[data-testid="user-row-actions-button"]');
+                            if (actionButton) actionButton.click();
+                            await new Promise(r => setTimeout(r, 100));
+
+                            const moveBtn = f('[data-testid="inventory-row-action-move"]');
+                            if (moveBtn) moveBtn.click();
                             
-                            // Dispatch the forged event
-                            wrapper.dispatchEvent(clickEvent);
-                            
-                            // Fallback: If it's an <a> tag and React still swallows it, force the URL change
-                            if (wrapper.tagName === 'A' && wrapper.href) {
-                                setTimeout(() => { window.location.href = wrapper.href; }, 100);
+                            // Wait for the modal drawer to fully render (AHK waited 750ms here)
+                            await new Promise(r => setTimeout(r, 800)); 
+
+                            // 4. Focus the Room Select and force it open (The Spacebar Bypass)
+                            const roomSelect = f('[id="select-input_Room:"]');
+                            if (roomSelect) {
+                                roomSelect.focus();
+                                
+                                // Simulates the physical Spacebar press for React
+                                roomSelect.dispatchEvent(new KeyboardEvent('keydown', {
+                                    key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true
+                                }));
+                                
+                                // Fallback: React UI libraries often prefer mousedown to open dropdowns
+                                roomSelect.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
                             }
-                        }
-                    })();`;
-                }
-            break;
 
-            case 'Alt+R':
-                if (active === 'pos') {
-                    payload = `(async function(){
-                        const f = (s) => document.querySelector(s);
-                        const anchor = f("[data-testid='guest-card_overflow_menu_anchor']");
-                            if (anchor) {
-                                anchor.click();
-                                await new Promise(r => setTimeout(r, 100));
-                                const release = f("[data-testid='guest-card_overflow_menu_menu-option_Release']");
-                                if (release) {
-                                    release.click();
-                                    await new Promise(r => setTimeout(r, 100));
-                                    const confirm = f("[data-testid='confirmation-popup_confirm-button_confirm']");
-                                    if (confirm) confirm.click();
+                            // Wait for the DOM to render the dropdown list
+                            await new Promise(r => setTimeout(r, 200)); 
+
+                            // 5. Select the Sales Floor
+                            const salesFloor = f('li[data-value="4226"]');
+                            if (salesFloor) salesFloor.click();
+                            
+                            await new Promise(r => setTimeout(r, 150));
+
+                            // 6. Focus and highlight the Quantity input
+                            const qtyInput = f('[data-field="quantity"][role="cell"] [type="number"]');
+                            if (qtyInput) {
+                                qtyInput.focus();
+                                qtyInput.select();
+                            }
+                        })();`;
+                    }
+                break;
+
+                case 'Alt+I':
+                    if (active === 'pos') {
+                        payload = `(function(){
+                            const sV = (e,v) => {
+                                const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                                s.call(e, v);
+                                e.dispatchEvent(new Event('input', {bubbles:true}));
+                            };
+                            const fE = (t,x) => Array.from(document.querySelectorAll(t)).find(e => e.innerText?.trim() === x || e.placeholder === x || e.name === x);
+                            const bA = fE('button,span,div', 'Add items');
+                            if(bA) {
+                                bA.click();
+                                setTimeout(() => {
+                                    const pF = fE('input', 'Manager PIN');
+                                    if(pF) { sV(pF, '${pin}'); setTimeout(() => { const bC = fE('button,span,div', 'Continue'); if(bC) bC.click(); }, 250); }
+                                }, 250);
+                            }
+                        })();`;
+                    }
+                break;
+                    
+                case 'Alt+B':
+                    if (active === 'pos') {
+                        payload = `(function(){
+                            const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
+                            if(el) el.focus();
+                        })();`;
+                    } else {
+                        payload = `(function(){
+                            const inputs = Array.from(document.querySelectorAll('input[type="search"], input[placeholder*="search" i]'));
+                            const visibleInputs = inputs.filter(el => el.offsetParent !== null);
+                            
+                            if (visibleInputs.length > 1) {
+                                // Grab the SECOND visible search bar (Array index 1)
+                                visibleInputs[1].focus();
+                                visibleInputs[1].select(); 
+                            } else if (visibleInputs.length === 1) {
+                                // Safety Fallback: If there's only one, grab the first
+                                visibleInputs[0].focus();
+                                visibleInputs[0].select();
+                            } else {
+                                console.log("No visible search bar found.");
+                            }
+                        })();`;
+                    }
+                break;
+
+                case 'Alt+Space':
+                    if (active === 'pos') {
+                        payload = `(async function(){
+                            const f = (t) => {
+                                const e = Array.from(document.querySelectorAll('button,span,div')).find(b => b.innerText.trim() === t);
+                                if(e) e.click();
+                                return e;
+                            };
+                            if(f('Release')) { setTimeout(() => f('Confirm'), 150); }
+                            await new Promise(r => setTimeout(r, 500));
+                            const el = Array.from(document.querySelectorAll('input,textarea')).find(i => i.placeholder === 'Find guest...');
+                            if(el) el.focus();
+                        })();`;
+                    } else {
+                        payload = `(function(){
+                            const btn = document.querySelector("[data-testid='move-inventory-modal-move-button']");
+                            if (btn) btn.click();
+                        })();`;
+                    }
+                break;
+
+                case 'Alt+Q':
+                    if (active === 'pos') {
+                        payload = `(function(){
+                            const el = document.querySelector("[data-testid='navigation-sidebar-logo-link']");
+                            if(el){
+                                const target = el.closest('div') || el.closest('a') || el;
+                                target.click();
+                            }
+                        })();`;
+                    } else {
+                        payload = `(function() {
+                            const allSvgs = Array.from(document.querySelectorAll('svg'));
+                            const anchorIndex = allSvgs.findIndex(svg => svg.getAttribute('data-testid') === 'sidebar-menu_svg_icon');
+                            
+                            if (anchorIndex !== -1 && anchorIndex + 1 < allSvgs.length) {
+                                const targetSvg = allSvgs[anchorIndex + 1];
+                                const wrapper = targetSvg.closest('a, button, li, div[role="button"], div[class*="MenuItem"]') || targetSvg;
+                                
+                                // THE REACT BUSTER: Forge a highly realistic mouse click
+                                const clickEvent = new MouseEvent('click', {
+                                    view: window,
+                                    bubbles: true,
+                                    cancelable: true,
+                                    buttons: 1
+                                });
+                                
+                                // Dispatch the forged event
+                                wrapper.dispatchEvent(clickEvent);
+                                
+                                // Fallback: If it's an <a> tag and React still swallows it, force the URL change
+                                if (wrapper.tagName === 'A' && wrapper.href) {
+                                    setTimeout(() => { window.location.href = wrapper.href; }, 100);
                                 }
                             }
-                    })();`;
-                }
-            break;
-        }
+                        })();`;
+                    }
+                break;
 
-        if (payload) {
-            // console.log(`[ROUTER] Firing ${key} payload into -> ${target}`);
-            await invoke('inject_js', { windowLabel: target, script: payload }).catch(err => console.error("Injection failed:", err));
+                case 'Alt+R':
+                    if (active === 'pos') {
+                        payload = `(async function(){
+                            const f = (s) => document.querySelector(s);
+                            const anchor = f("[data-testid='guest-card_overflow_menu_anchor']");
+                                if (anchor) {
+                                    anchor.click();
+                                    await new Promise(r => setTimeout(r, 100));
+                                    const release = f("[data-testid='guest-card_overflow_menu_menu-option_Release']");
+                                    if (release) {
+                                        release.click();
+                                        await new Promise(r => setTimeout(r, 100));
+                                        const confirm = f("[data-testid='confirmation-popup_confirm-button_confirm']");
+                                        if (confirm) confirm.click();
+                                    }
+                                }
+                        })();`;
+                    }
+                break;
+            }
+
+            if (payload) {
+                // console.log(`[ROUTER] Firing ${key} payload into -> ${target}`);
+                await invoke('inject_js', { windowLabel: target, script: payload }).catch(err => console.error("Injection failed:", err));
+            }
+        };
+
+        const keys = ['Alt+C', 'Alt+M', 'Alt+I', 'Alt+Space', 'Alt+B', 'Alt+Q', 'Alt+R'];
+        
+        for (const key of keys) {
+            try {
+                await register(key, (event) => {
+                    if (event.state === 'Released') return;
+                    dispatchHotkey(key)});
+            } catch (e) {
+                console.error(`Failed to register ${key}:`, e);
+            }
         }
+        console.log('Keys registered');
     };
-
-    const keys = ['Alt+C', 'Alt+M', 'Alt+I', 'Alt+Space', 'Alt+B', 'Alt+Q', 'Alt+R'];
-    
-    for (const key of keys) {
-        try {
-            await register(key, (event) => {
-                if (event.state === 'Released') return;
-                dispatchHotkey(key)});
-        } catch (e) {
-            console.error(`Failed to register ${key}:`, e);
-        }
-    }
-    console.log('Keys registered');
-};
 
     await registerDualHotkeys();
 
@@ -544,7 +589,7 @@ const registerDualHotkeys = async () => {
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'pos', script: getInjectionScript('Backoffice ➔', 'backoffice') })
             .catch(err => console.error("create pos->backoffice button failed:", err));
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 1000));
             await invoke('inject_js', { windowLabel: 'pos', script: getLoginPayload(username, password) })
             .catch(err => console.error("pos login injection failed:", err));
         }, 2000);
@@ -556,10 +601,10 @@ const registerDualHotkeys = async () => {
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'backoffice', script: getInjectionScript('⬅ POS', 'pos') })
             .catch(err => console.error("create backoffice->pos button failed:", err));
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 1000));
             await invoke('inject_js', { windowLabel: 'backoffice', script: getLoginPayload(username, password) })
             .catch(err => console.error("backoffice login injection failed:", err));
-        }, 2000);
+        }, 3000);
     });
 
 });
