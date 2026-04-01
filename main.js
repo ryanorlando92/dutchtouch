@@ -1,19 +1,26 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { register, unregisterAll } from '@tauri-apps/plugin-global-shortcut';
+import { register, unregisterAll, isRegistered } from '@tauri-apps/plugin-global-shortcut';
 import { invoke } from '@tauri-apps/api/core';
 import { load } from '@tauri-apps/plugin-store';
 import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { message, confirm } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
-import { exit } from '@tauri-apps/plugin-process';
 
 let store;
 const appWindow = WebviewWindow.getCurrent();
 
+(async () => {
+    try {
+        await unregisterAll();
+        console.log("Startup: Cleared OS global shortcut hooks.");
+    } catch (e) {
+        console.warn("Startup: Hook cleanup skipped/failed.", e);
+    }
+})();
+
 appWindow.onCloseRequested(async (event) => {
     event.preventDefault();
-
     console.log("Launcher closing. Unregistering all global hotkeys...");
     try {
         await unregisterAll();
@@ -21,18 +28,15 @@ appWindow.onCloseRequested(async (event) => {
     } catch (e) {
         console.error("Failed to unregister hotkeys on exit:", e);
     }
-
     console.log("Executing total application shutdown...");
     await exit(0); 
 });
 
 async function loadSavedSettings() {
     try {
-        console.log('loading saved settings...');
-
+        console.log('Loading saved settings...');
         store = await load('settings.json');
-        
-        const osUser = await invoke('get_os_username');
+        const hwID = await invoke('get_hardware_key');
 
         const savedLocation = await store.get('location');
         if (savedLocation) document.getElementById('location').value = savedLocation;
@@ -45,7 +49,7 @@ async function loadSavedSettings() {
 
         const savedEncryptedPassword = await store.get('password');
         if (savedEncryptedPassword) {
-            const decrypted = await SecureStore.decrypt(savedEncryptedPassword, osUser);
+            const decrypted = await SecureStore.decrypt(savedEncryptedPassword, hwID);
             document.getElementById('password').value = decrypted;
         }
     } catch (error) {
@@ -95,29 +99,18 @@ const SecureStore = {
 
 async function checkForUpdates() {
     try {
-        console.log("Checking for updates...");
         const update = await check();
-        
         if (update) {
             console.log(`Found update: Version ${update.version}`);
-
             const userConfirmed = await confirm(
                 `Version ${update.version} is available! Would you like to install it now?`, 
-                { 
-                    title: 'Dutch Touch Updater', 
-                    kind: 'info' 
-                }
+                { title: 'Dutch Touch Updater', kind: 'info' }
             );
 
             if (userConfirmed) {
-                console.log("User said yes. Downloading and installing...");
                 await update.downloadAndInstall();
                 await relaunch();
-            } else {
-                console.log("User declined the update.");
             }
-        } else {
-            console.log("App is currently up to date.");
         }
     } catch (error) {
         console.error("Failed to check for updates:", error);
@@ -140,31 +133,24 @@ async function setupGlobalListener() {
                 const boWin = await WebviewWindow.getByLabel('backoffice');
 
                 if (!posWin || !boWin) {
-                    console.error("[TOGGLE] Aborted: Could not find windows in memory.");
+                    console.error("[TOGGLE] Aborted: Windows missing.");
                     isToggling = false;
                     return;
                 }
 
+                // FIX: Use hide()/show() instead of minimize(). It avoids Windows OS animation queues
+                // which often corrupt focus reporting and cause the hotkeys to silently fail.
                 if (target === 'backoffice') {
-
                     console.log("[TOGGLE] Hiding POS...");
-                    await posWin.minimize();
-
+                    await posWin.hide();
                     console.log("[TOGGLE] Showing Backoffice...");
                     await boWin.show();
-                    await boWin.unminimize();
-                    // await new Promise(r => setTimeout(r, 500));
                     await boWin.setFocus();
-
                 } else if (target === 'pos') {
-
                     console.log("[TOGGLE] Hiding Backoffice...");
-                    await boWin.minimize();
-
+                    await boWin.hide();
                     console.log("[TOGGLE] Showing POS...");
                     await posWin.show();
-                    await posWin.unminimize();
-                    // await new Promise(r => setTimeout(r, 500));
                     await posWin.setFocus();
                 }
             } catch (err) {
@@ -173,60 +159,21 @@ async function setupGlobalListener() {
                 isToggling = false; 
             }
         });
-        console.log("Global listener started.");
     } catch (err) {
         console.error("Failed to boot global listener:", err);
     }
 }
-
-/* async function killOldWindows() {
-    try {
-        console.log('Starting Garbage Collection...');
-        const allWindows = await WebviewWindow.getAll();
-        const posWindows = allWindows.filter(w => w.label.includes('pos'));
-        const boWindows = allWindows.filter(w => w.label.includes('backoffice'));
-
-        const executeClones = async (windowGroup, groupName) => {
-            if (windowGroup.length <= 1) return; 
-            console.warn(`[GC] Detected ${windowGroup.length} ${groupName} windows. Initiating sweep...`);
-
-            let activeWin = null;
-            for (const win of windowGroup) {
-                if (await win.isFocused()) {
-                    activeWin = win;
-                    break;
-                }
-            }
-
-            if (!activeWin) {
-                activeWin = windowGroup[windowGroup.length - 1]; 
-            }
-
-            for (const win of windowGroup) {
-                if (win.label !== activeWin.label) {
-                    console.log(`[GC] Terminating zombie clone: ${win.label}`);
-                    await win.close(); 
-                }
-            }
-        };
-
-        await executeClones(posWindows, "POS");
-        await executeClones(boWindows, "Backoffice");
-
-        console.log('Garbage Collection Complete.')
-    } catch (error) {
-        console.error("Garbage Collector failed to complete sweep:", error);
-    }
-}
-setInterval(killOldWindows, 15000); */
 
 setupGlobalListener();
 loadSavedSettings();
 checkForUpdates();
 
 document.getElementById('launchBtn').addEventListener('click', async () => {
+    // Purge before launching
     await unregisterAll().catch(err => console.error("un-registering hotkeys failed:", err));
 
+    const pin = document.getElementById('managerPin').value;
+    
     const registerDualHotkeys = async () => {
         console.log('Starting hotkey registration sequence');
 
@@ -240,14 +187,11 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             for (const win of allWindows) {
                 if (await win.isFocused()) {
                     target = win.label;
-                    
                     if (target.includes('pos')) active = 'pos';
                     else if (target.includes('backoffice')) active = 'backoffice';
-
                     break;
                 }
             }
-            console.log(`[ROUTER] Active window evaluated as: ${target} (Group: ${active})`);
 
             if (!active || !target) {
                 console.log(`[ROUTER] ABORT: User is clicked into another app or unknown window.`);
@@ -257,6 +201,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             let payload = "";
             target = active;
 
+            // ... Your identical hotkey switch block ...
             switch (key) {
                 case 'Alt+C':
                     if (active === 'pos') {
@@ -270,16 +215,13 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             const f = (t) => {
                                 const testIdBtn = document.querySelector('[data-testid="modal-close-button"]');
                                 if (testIdBtn && testIdBtn.offsetParent !== null) return testIdBtn;
-                                
                                 return Array.from(document.querySelectorAll('button,span,div')).find(i => i.innerText?.trim() === t && i.offsetParent !== null);
                             };
-                            
                             const b1 = f('Cancel'); if(b1) b1.click();
                             setTimeout(() => { const b2 = f('Close'); if(b2) b2.click(); }, 100);
                         })();`;
                     }
                 break;
-
                 case 'Alt+M':
                     if (active === 'pos') {
                         payload = `(function(){ const card = document.querySelector("div[class^='OrderKanbanCard']"); if(card) card.click(); })();`;
@@ -288,12 +230,10 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             const f = (s) => document.querySelector(s);
                             const fA = (s) => Array.from(document.querySelectorAll(s));
                             
-                            // 1. Find the Vault room
                             const RoomCol = fA('[data-field="room.roomNo"]');
                             const vaultCell = RoomCol.find(el => el.innerText && el.innerText.trim() === 'Vault');
-                            if (!vaultCell) { console.log('Vault room not found'); return; }
+                            if (!vaultCell) return;
                             
-                            // 2. Locate the corresponding action row
                             const row = vaultCell.closest('[data-rowindex]');
                             if (!row) return;
                             const rowIndex = row.getAttribute('data-rowindex');
@@ -301,7 +241,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             const actionRow = f('[data-testid="data-grid-pinned-row"][data-rowindex="' + rowIndex + '"]');
                             if (!actionRow) return;
 
-                            // 3. Click Row Actions -> Move
                             const actionButton = actionRow.querySelector('[data-testid="user-row-actions-button"]');
                             if (actionButton) actionButton.click();
                             await new Promise(r => setTimeout(r, 100));
@@ -309,33 +248,22 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             const moveBtn = f('[data-testid="inventory-row-action-move"]');
                             if (moveBtn) moveBtn.click();
                             
-                            // Wait for the modal drawer to fully render (AHK waited 750ms here)
                             await new Promise(r => setTimeout(r, 800)); 
 
-                            // 4. Focus the Room Select and force it open (The Spacebar Bypass)
                             const roomSelect = f('[id="select-input_Room:"]');
                             if (roomSelect) {
                                 roomSelect.focus();
-                                
-                                // Simulates the physical Spacebar press for React
-                                roomSelect.dispatchEvent(new KeyboardEvent('keydown', {
-                                    key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true
-                                }));
-                                
-                                // Fallback: React UI libraries often prefer mousedown to open dropdowns
+                                roomSelect.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true }));
                                 roomSelect.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
                             }
 
-                            // Wait for the DOM to render the dropdown list
                             await new Promise(r => setTimeout(r, 200)); 
 
-                            // 5. Select the Sales Floor
                             const salesFloor = f('li[data-value="4226"]');
                             if (salesFloor) salesFloor.click();
                             
                             await new Promise(r => setTimeout(r, 150));
 
-                            // 6. Focus and highlight the Quantity input
                             const qtyInput = f('[data-field="quantity"][role="cell"] [type="number"]');
                             if (qtyInput) {
                                 qtyInput.focus();
@@ -344,7 +272,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         })();`;
                     }
                 break;
-
                 case 'Alt+I':
                     if (active === 'pos') {
                         payload = `(function(){
@@ -361,11 +288,12 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                                     const pF = fE('input', 'Manager PIN');
                                     if(pF) { sV(pF, '${pin}'); setTimeout(() => { const bC = fE('button,span,div', 'Continue'); if(bC) bC.click(); }, 250); }
                                 }, 250);
+                                const sA = fE('input', 'Product search...');
+                                sA.focus();
                             }
                         })();`;
                     }
                 break;
-                    
                 case 'Alt+B':
                     if (active === 'pos') {
                         payload = `(function(){
@@ -378,20 +306,15 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             const visibleInputs = inputs.filter(el => el.offsetParent !== null);
                             
                             if (visibleInputs.length > 1) {
-                                // Grab the SECOND visible search bar (Array index 1)
                                 visibleInputs[1].focus();
                                 visibleInputs[1].select(); 
                             } else if (visibleInputs.length === 1) {
-                                // Safety Fallback: If there's only one, grab the first
                                 visibleInputs[0].focus();
                                 visibleInputs[0].select();
-                            } else {
-                                console.log("No visible search bar found.");
                             }
                         })();`;
                     }
                 break;
-
                 case 'Alt+Space':
                     if (active === 'pos') {
                         payload = `(async function(){
@@ -412,7 +335,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         })();`;
                     }
                 break;
-
                 case 'Alt+Q':
                     if (active === 'pos') {
                         payload = `(function(){
@@ -430,19 +352,8 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                             if (anchorIndex !== -1 && anchorIndex + 1 < allSvgs.length) {
                                 const targetSvg = allSvgs[anchorIndex + 1];
                                 const wrapper = targetSvg.closest('a, button, li, div[role="button"], div[class*="MenuItem"]') || targetSvg;
-                                
-                                // THE REACT BUSTER: Forge a highly realistic mouse click
-                                const clickEvent = new MouseEvent('click', {
-                                    view: window,
-                                    bubbles: true,
-                                    cancelable: true,
-                                    buttons: 1
-                                });
-                                
-                                // Dispatch the forged event
+                                const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true, buttons: 1 });
                                 wrapper.dispatchEvent(clickEvent);
-                                
-                                // Fallback: If it's an <a> tag and React still swallows it, force the URL change
                                 if (wrapper.tagName === 'A' && wrapper.href) {
                                     setTimeout(() => { window.location.href = wrapper.href; }, 100);
                                 }
@@ -450,7 +361,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                         })();`;
                     }
                 break;
-
                 case 'Alt+R':
                     if (active === 'pos') {
                         payload = `(async function(){
@@ -473,7 +383,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             }
 
             if (payload) {
-                // console.log(`[ROUTER] Firing ${key} payload into -> ${target}`);
                 await invoke('inject_js', { windowLabel: target, script: payload }).catch(err => console.error("Injection failed:", err));
             }
         };
@@ -482,21 +391,19 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         
         for (const key of keys) {
             try {
+                // Ensure double-clicks don't cause duplicate hook attempts
+                if (await isRegistered(key)) continue; 
                 await register(key, (event) => {
                     if (event.state === 'Released') return;
-                    dispatchHotkey(key)});
+                    dispatchHotkey(key)
+                });
             } catch (e) {
                 console.error(`Failed to register ${key}:`, e);
             }
         }
-        console.log('Keys registered');
     };
 
-    await registerDualHotkeys();
-
-    console.log('setting variables from launcher input');
     const locationStr = document.getElementById('location').value;
-    const pin = document.getElementById('managerPin').value;
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
@@ -505,141 +412,114 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         return;
     }
     
-    console.log('saving launcher settings...');
     try {
-        const osUser = await invoke('get_os_username');
-        const encryptedPassword = await SecureStore.encrypt(password, osUser);
+        const hwID = await invoke('get_hardware_key');
+        const encryptedPassword = await SecureStore.encrypt(password, hwID);
         await store.set('location', locationStr);
         await store.set('pin', pin);
         await store.set('username', username);
         await store.set('password', encryptedPassword);
         await store.save(); 
-        console.log("Settings safely encrypted and saved.");
     } catch (saveError) {
         console.error("Failed to save settings:", saveError);
     }
 
-    console.log("Spawning windows...");
-        const posWin = new WebviewWindow('pos', {
-            url: 'https://verano.pos.dutchie.com/guestlist',
-            title: 'Dutchie POS - DutchTouch',
-            width: 1200,
-            height: 800,
-            visible: true,
-            maximized: true
-        });
+    await registerDualHotkeys();
 
-        const boWin = new WebviewWindow('backoffice', {
-            url: 'https://verano.backoffice.dutchie.com/',
-            title: 'Dutchie Backoffice - DutchTouch',
-            width: 1200,
-            height: 800,
-            visible: true,
-            maximized: true
-        });
-        console.log('POS & Backoffice windows initializing...');
+    // Create Windows
+    const posWin = new WebviewWindow('pos', {
+        url: 'https://verano.pos.dutchie.com/guestlist',
+        title: 'Dutchie POS - DutchTouch',
+        width: 1200, height: 800, visible: true, maximized: true
+    });
 
-        const getInjectionScript = (buttonText, targetView) => {
-        return `
-            (function() {
-                if (document.getElementById('tauri-switcher')) return;
-                
-                // 1. Build the Button
-                const btn = document.createElement('button');
-                btn.id = 'tauri-switcher';
-                btn.innerText = '${buttonText}';
-                btn.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:999999; background:#0f0f0f; color:#FFF; border:2px solid #396cd8; border-radius:8px; padding:12px 24px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 14px;';
-                
-                btn.onclick = () => {
-                    try {
-                        if (!window.__TAURI__) {
-                            alert("CRITICAL ERROR: window.__TAURI__ is missing!");
-                            return;
-                        }
-                        window.__TAURI__.event.emit('toggle-view', '${targetView}');
-                    } catch (e) {
-                        alert("EMIT FAILED: " + e.message);
-                    }
-                };
-                
-                document.body.appendChild(btn);
+    const boWin = new WebviewWindow('backoffice', {
+        url: 'https://verano.backoffice.dutchie.com/',
+        title: 'Dutchie Backoffice - DutchTouch',
+        width: 1200, height: 800, visible: true, maximized: true
+    });
 
-                document.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.key === 'Tab') {
-                        e.preventDefault();
-                        console.log("Ctrl+Tab intercepted. Triggering window swap...");
-                        btn.click();
-                    }
-                }, true);
+    // FIX: Accidental window closures destroy the target label, breaking the hotkey router permanently.
+    // Intercept and hide instead of closing.
+    posWin.onCloseRequested((e) => { e.preventDefault(); posWin.hide(); });
+    boWin.onCloseRequested((e) => { e.preventDefault(); boWin.hide(); });
 
-                window.addEventListener('keyup', (e) => {
-                    if (e.key === 'Alt') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
-                }, true);
+    const getInjectionScript = (buttonText, targetView) => `
+        (function() {
+            if (document.getElementById('tauri-switcher')) return;
+            const btn = document.createElement('button');
+            btn.id = 'tauri-switcher';
+            btn.innerText = '${buttonText}';
+            btn.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:999999; background:#0f0f0f; color:#FFF; border:2px solid #396cd8; border-radius:8px; padding:12px 24px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 14px;';
+            
+            btn.onclick = () => {
+                try {
+                    if (window.__TAURI__) window.__TAURI__.event.emit('toggle-view', '${targetView}');
+                } catch (e) { console.error("EMIT FAILED: " + e.message); }
+            };
+            
+            document.body.appendChild(btn);
 
-            })();
-        `;
-    };
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Tab') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            }, true);
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'Alt') { e.preventDefault(); e.stopPropagation(); }
+            }, true);
+        })();
+    `;
     
     posWin.once('tauri://created', async () => {
-        console.log("POS Window created.");
-
         setTimeout(async () => {
-            await invoke('inject_js', { windowLabel: 'pos', script: getInjectionScript('Backoffice ➔', 'backoffice') })
-            .catch(err => console.error("create pos->backoffice button failed:", err));
-            await new Promise(r => setTimeout(r, 1000));
-            await invoke('inject_js', { windowLabel: 'pos', script: getLoginPayload(username, password) })
-            .catch(err => console.error("pos login injection failed:", err));
-        }, 2000);
+            await invoke('inject_js', { windowLabel: 'pos', script: getInjectionScript('Backoffice ➔', 'backoffice') });
+            await invoke('inject_js', { windowLabel: 'pos', script: getLoginPayload(username, password) });
+        }, 1000);
     });
 
     boWin.once('tauri://created', async () => {
-        console.log("Backoffice Window created.");
-
         setTimeout(async () => {
-            await invoke('inject_js', { windowLabel: 'backoffice', script: getInjectionScript('⬅ POS', 'pos') })
-            .catch(err => console.error("create backoffice->pos button failed:", err));
-            await new Promise(r => setTimeout(r, 1000));
-            await invoke('inject_js', { windowLabel: 'backoffice', script: getLoginPayload(username, password) })
-            .catch(err => console.error("backoffice login injection failed:", err));
-        }, 3000);
+            await invoke('inject_js', { windowLabel: 'backoffice', script: getInjectionScript('⬅ POS', 'pos') });
+            await invoke('inject_js', { windowLabel: 'backoffice', script: getLoginPayload(username, password) });
+        }, 1000);
     });
-
 });
 
+// FIX: Robust payload injection to prevent race conditions during slow network speeds
 function getLoginPayload(username, password) {
     return `
         (function() {
             const injectedUser = ${JSON.stringify(username)};
             const injectedPass = ${JSON.stringify(password)};
-            let attempts = 0;
 
-            const setNativeValue = (element, value) => {
-                const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                valueSetter.call(element, value);
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-            };
-
-            const attemptLogin = () => {
-                attempts++;
-                const userField = document.querySelector('input[data-testid="login-page_input_username"], input[placeholder="Username"]');
+            // Use an interval instead of a fixed timeout to account for React routing and slow internet
+            const intervalId = setInterval(() => {
+                const userField = document.querySelector('input[data-testid="login-page_input_username"], input[placeholder="Username"], input[name="username"]');
                 const passField = document.querySelector('input[type="password"]');
+                const loginBtn = document.querySelector('button[type="submit"]');
 
-                if (userField && passField) {
+                if (userField && passField && loginBtn) {
+                    clearInterval(intervalId); // Mount confirmed, clear poller
+
+                    const setNativeValue = (element, value) => {
+                        const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+                        if (valueSetter) valueSetter.call(element, value);
+                        else element.value = value;
+                        element.dispatchEvent(new Event('input', { bubbles: true }));
+                        element.dispatchEvent(new Event('change', { bubbles: true }));
+                    };
+
                     setNativeValue(userField, injectedUser);
                     setNativeValue(passField, injectedPass);
                     
-                     const loginBtn = document.querySelector('button[type="submit"]');
-                     if (loginBtn) {
-                         setTimeout(() => loginBtn.click(), 500); 
-                     }
-                } else if (attempts < 20) {
-                    setTimeout(attemptLogin, 500);
+                    setTimeout(() => loginBtn.click(), 400); 
                 }
-            };
-            attemptLogin();
+            }, 1000);
+
+            // Safety killswitch: Stop polling after 45 seconds
+            setTimeout(() => clearInterval(intervalId), 45000);
         })();
     `;
 }

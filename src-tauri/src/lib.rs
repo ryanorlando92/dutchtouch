@@ -1,32 +1,25 @@
 use tauri::Manager;
 
-// --- MICRO-LESSON: RUST BASICS ---
-// `#[tauri::command]` is a macro. It automatically generates the background boilerplate
-// required to make this Rust function callable from your JavaScript frontend.
-// `app: tauri::AppHandle` is automatically injected by Tauri and acts as the "master controller" for your app's state.
-// `Result<(), String>` tells Rust this function will either return nothing `()` on success,
-// or a `String` containing an error message on failure.
-
-// --- MICRO-LESSON: ENVIRONMENT VARIABLES ---
-// `std::env::var` allows Rust to read system-level variables.
-// Windows stores the logged-in user under "USERNAME", while Linux/macOS use "USER".
-// `.unwrap_or_else` provides a safe fallback string just in case the OS refuses to answer,
-// preventing your app from crashing.
 #[tauri::command]
-fn get_os_username() -> String {
+fn get_os_username() -> Result<String, String> {
     std::env::var("USERNAME")
         .or_else(|_| std::env::var("USER"))
-        .unwrap_or_else(|_| "dutch_touch_default".to_string())
+        .or_else(|_| Ok("dutch_touch_default".to_string()))
 }
 
 #[tauri::command]
 fn inject_js(app: tauri::AppHandle, window_label: String, script: String) -> Result<(), String> {
     if let Some(webview) = app.get_webview_window(&window_label) {
-        webview.eval(&script).map_err(|e| e.to_string())?;
+        webview.eval(&script).map_err(|e| format!("JavaScript Evaluation Error: {}", e))?;
         Ok(())
     } else {
-        Err(format!("Window '{}' not found", window_label))
+        Err(format!("Target window '{}' not found in AppHandle", window_label))
     }
+}
+
+#[tauri::command]
+fn get_hardware_key() -> Result<String, String> {
+    machine_uid::get().map_err(|_| "Failed to fetch Hardware UUID".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,10 +30,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![inject_js, get_os_username])
+        .invoke_handler(tauri::generate_handler![inject_js, get_hardware_key, get_os_username])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
+        .run(|_app_handle, event| {
             if let tauri::RunEvent::WindowEvent {
                 label,
                 event: window_event,
@@ -49,8 +42,7 @@ pub fn run() {
             {
                 if label == "main" {
                     if let tauri::WindowEvent::Destroyed = window_event {
-                        println!("Main window closed. Executing total application shutdown.");
-                        app_handle.exit(0);
+                        println!("Front-End is supposed to handle shutdown.");
                     }
                 }
             }
