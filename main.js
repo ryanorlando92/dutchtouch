@@ -6,18 +6,24 @@ import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { message, confirm } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
-import { event } from '@tauri-apps/api';
+import { exit } from '@tauri-apps/plugin-process';
 
 let store;
 const appWindow = WebviewWindow.getCurrent();
 
-appWindow.listen('tauri://close-requested', async () => {
+appWindow.onCloseRequested(async (event) => {
+    event.preventDefault();
+
     console.log("Launcher closing. Unregistering all global hotkeys...");
     try {
         await unregisterAll();
+        console.log("Hotkeys successfully released.");
     } catch (e) {
         console.error("Failed to unregister hotkeys on exit:", e);
     }
+
+    console.log("Executing total application shutdown...");
+    await exit(0); 
 });
 
 async function loadSavedSettings() {
