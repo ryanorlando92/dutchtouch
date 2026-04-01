@@ -12,12 +12,12 @@
 
 **`Alt + Space` (Release > Confirm / Finalize Move)**
 
-**POS:** Two-step confirmation to leave a cart. Clicks 'Release', then clicks 'Confirm'.
+**POS:** Two-step confirmation to leave a cart. Clicks 'Release', then clicks 'Confirm'.  
 **Backoffice:** Submits the move inventory modal.
 
 **`Alt + B` (Search)**
 
-**POS:** Focuses the "Find guest..." search bar.
+**POS:** Focuses the "Find guest..." search bar.  
 **Backoffice:** Highlights the search bar on 'Catalog' and 'Inventory' pages.
 
 **`Alt + C` (Cancel / Close)**
@@ -26,7 +26,7 @@
 
 **`Alt + Q` (Navigation)**
 
-**POS:** Clicks the main sidebar logo link (Takes you to POS Homepage).
+**POS:** Clicks the main sidebar logo link (Takes you to POS Homepage).  
 **Backoffice:** Clicks the logi link (Takes you to Backoffice Homepage).
 
 ## Known Issues
@@ -35,12 +35,14 @@
 * **Brittle Selectors:** The Backoffice lacks comprehensive data-testid attributes. Several macros rely on DOM array indexing or fuzzy text matching, which will break if Dutchie pushes a major UI layout update.
 
 ## Roadmap
-**PMP Workflow Integration:** Implement cross-window orchestration to automate Prescription Monitoring Program checks.
-    - Spawn a dedicated PMP WebView.
-    - Automate data entry for patient searches.
-    - Intercept the resulting CSV download using Tauri's fs API to prevent saving to the user's public Downloads folder.
-    - Process the CSV data natively in Rust.
-    - Pass a result payload back to the POS window to auto-fill the transaction reference.
+**PMP Workflow Integration:** Implement cross-window orchestration to automate Prescription Monitoring Program checks.  
+    <div style="padding-left: 30px;">
+    - Spawn a dedicated PMP WebView.  
+    - Automate data entry for patient searches.  
+    - Intercept the resulting CSV download using Tauri's fs API to prevent saving to the user's public Downloads folder.  
+    - Process the CSV data natively in Rust.  
+    - Pass a result payload back to the POS window to auto-fill the transaction reference.  
+    </div>
 
 **store specific room names for backoffice alt+m**
 
