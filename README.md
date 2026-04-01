@@ -1,26 +1,31 @@
 # Dutch Touch
-### A cross-platform desktop wrapper for the Dutchie POS and Backoffice, built with Tauri. This application replaces the legacy AutoHotkey script by running the web interfaces in native WebViews making a seamless wrapper around Dutchie.
+**A cross-platform desktop wrapper for the Dutchie POS and Backoffice, built with Tauri. This application replaces the legacy AutoHotkey script by running the web interfaces in native WebViews making a seamless wrapper around Dutchie.**
 
 ## Hotkey Mapping
 ### These shortcuts only fire when actively focused inside the application window.
 `Ctrl + Tab` Toggles focus between the POS and Backoffice windows.
 
 **`Alt + M` (Select Patient / Move Vault Item)**
+
 **POS:** Clicks the first available Order Card.
 **Backoffice:** Automates the Vault-to-Sales-Floor transfer. Finds the Vault row, opens the move drawer, selects Sales Floor, and focuses the quantity input.
 
 **`Alt + Space` (Release > Confirm / Finalize Move)**
+
 **POS:** Two-step confirmation to leave a cart. Clicks 'Release', then clicks 'Confirm'.
 **Backoffice:** Submits the move inventory modal.
 
 **`Alt + B` (Search)**
+
 **POS:** Focuses the "Find guest..." search bar.
 **Backoffice:** Highlights the search bar on 'Catalog' and 'Inventory' pages.
 
 **`Alt + C` (Cancel / Close)**
+
 **POS:** Dismisses *most* active modals. 
 
 **`Alt + Q` (Navigation)**
+
 **POS:** Clicks the main sidebar logo link (Takes you to POS Homepage).
 **Backoffice:** Clicks the logi link (Takes you to Backoffice Homepage).
 
