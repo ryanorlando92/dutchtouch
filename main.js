@@ -6,8 +6,19 @@ import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { message, confirm } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
+// import { event } from '@tauri-apps/api';
 
 let store;
+const appWindow = WebviewWindow.getCurrent();
+
+appWindow.listen('tauri://close-requested', async () => {
+    console.log("Launcher closing. Unregistering all global hotkeys...");
+    try {
+        await unregisterAll();
+    } catch (e) {
+        console.error("Failed to unregister hotkeys on exit:", e);
+    }
+});
 
 async function loadSavedSettings() {
     try {
@@ -168,7 +179,8 @@ checkForUpdates();
 
 document.getElementById('launchBtn').addEventListener('click', async () => {
     await unregisterAll().catch(err => console.error("un-registering hotkeys failed:", err));
-    
+    await registerDualHotkeys();
+
     console.log('setting variables from launcher input');
     const locationStr = document.getElementById('location').value;
     const pin = document.getElementById('managerPin').value;
@@ -212,7 +224,7 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             visible: true,
             maximized: true
         });
-        console.log('POS & Backoffice windows successfully initialized');
+        console.log('POS & Backoffice windows initializing...');
 
         const getInjectionScript = (buttonText, targetView) => {
         return `
@@ -268,15 +280,15 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         console.log('Starting hotkey registration sequence');
 
         const dispatchHotkey = async (key) => {
-          // console.log(`[ROUTER] Intercepted: ${key}`);
+            console.log(`[ROUTER] Intercepted: ${key}`);
 
            // await new Promise(r => setTimeout(r, 50)); 
 
             const active = await getActiveLabel();
-            // console.log(`[ROUTER] Active window evaluated as: ${active}`);
+            console.log(`[ROUTER] Active window evaluated as: ${active}`);
 
             if (!active) {
-               // console.log(`[ROUTER] ABORT: User is clicked into another app.`);
+                console.log(`[ROUTER] ABORT: User is clicked into another app.`);
                 return;
             }
 
@@ -506,10 +518,11 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
 
         const keys = ['Alt+C', 'Alt+M', 'Alt+I', 'Alt+Space', 'Alt+B', 'Alt+Q', 'Alt+R'];
         
-        console.log('registering hotkeys...');
         for (const key of keys) {
             try {
-                await register(key, () => dispatchHotkey(key));
+                await register(key, (event) => {
+                    if (event.state === 'Released') return;
+                    dispatchHotkey(key)});
             } catch (e) {
                 console.error(`Failed to register ${key}:`, e);
             }
@@ -519,8 +532,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
     
     posWin.once('tauri://created', async () => {
         console.log("POS Window created.");
-        
-        await registerDualHotkeys();
 
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'pos', script: getInjectionScript('Backoffice ➔', 'backoffice') })
@@ -541,16 +552,6 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
             await invoke('inject_js', { windowLabel: 'backoffice', script: getLoginPayload(username, password) })
             .catch(err => console.error("backoffice login injection failed:", err));
         }, 2000);
-    });
-
-    posWin.setFocus();
-
-    posWin.onCloseRequested(async () => {
-        try { await unregisterAll(); } catch (e) { console.error(e); };
-    });
-
-    boWin.onCloseRequested(async () => {
-        try { await unregisterAll(); } catch (e) { console.error(e); }
     });
 
 });
