@@ -7,7 +7,7 @@
 
 **`Alt + M` (Select Patient / Move Vault Item)**
 
-**POS:** Clicks the first available Order Card.
+**POS:** Clicks the first available Order Card.  
 **Backoffice:** Automates the Vault-to-Sales-Floor transfer. Finds the Vault row, opens the move drawer, selects Sales Floor, and focuses the quantity input.
 
 **`Alt + Space` (Release > Confirm / Finalize Move)**
@@ -36,13 +36,11 @@
 
 ## Roadmap
 **PMP Workflow Integration:** Implement cross-window orchestration to automate Prescription Monitoring Program checks.  
-    <div style="padding-left: 30px;">
     - Spawn a dedicated PMP WebView.  
     - Automate data entry for patient searches.  
     - Intercept the resulting CSV download using Tauri's fs API to prevent saving to the user's public Downloads folder.  
     - Process the CSV data natively in Rust.  
     - Pass a result payload back to the POS window to auto-fill the transaction reference.  
-    </div>
 
 **store specific room names for backoffice alt+m**
 
