@@ -288,8 +288,8 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                                     const pF = fE('input', 'Manager PIN');
                                     if(pF) { sV(pF, '${pin}'); setTimeout(() => { const bC = fE('button,span,div', 'Continue'); if(bC) bC.click(); }, 250); }
                                 }, 250);
-                                const sA = fE('input', 'Product search...');
-                                sA.focus();
+                                const el = document.getElementById("productSearchBar");
+                                if(el) { el.focus(); el.select(); };
                             }
                         })();`;
                     }
@@ -476,14 +476,14 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'pos', script: getInjectionScript('Backoffice ➔', 'backoffice') });
             await invoke('inject_js', { windowLabel: 'pos', script: getLoginPayload(username, password) });
-        }, 1000);
+        }, 2000);
     });
 
     boWin.once('tauri://created', async () => {
         setTimeout(async () => {
             await invoke('inject_js', { windowLabel: 'backoffice', script: getInjectionScript('⬅ POS', 'pos') });
             await invoke('inject_js', { windowLabel: 'backoffice', script: getLoginPayload(username, password) });
-        }, 1000);
+        }, 2000);
     });
 });
 
