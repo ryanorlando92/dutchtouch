@@ -286,10 +286,12 @@ document.getElementById('launchBtn').addEventListener('click', async () => {
                                 bA.click();
                                 setTimeout(() => {
                                     const pF = fE('input', 'Manager PIN');
-                                    if(pF) { sV(pF, '${pin}'); setTimeout(() => { const bC = fE('button,span,div', 'Continue'); if(bC) bC.click(); }, 250); }
-                                }, 250);
-                                const el = document.getElementById("productSearchBar");
-                                if(el) { el.focus(); el.select(); };
+                                    if(pF) { sV(pF, '${pin}'); setTimeout(() => { const bC = fE('button,span,div', 'Continue'); if(bC) bC.click(); }, 200); }
+                                }, 200);
+                                setTimeout(() => {
+                                    const el = document.getElementById("productSearchBar");
+                                    if(el) { el.focus(); el.select(); }
+                                }, 500);
                             }
                         })();`;
                     }
